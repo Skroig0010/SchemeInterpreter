@@ -1,0 +1,7 @@
+-cp src
+-neko scheme.n
+-main src.Main
+src.parser.Parser
+src.parser.Val
+src.lexer.Lexer
+src.lexer.Token
