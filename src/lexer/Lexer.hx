@@ -1,56 +1,40 @@
 package src.lexer;
 
 class Lexer{
+    public var counter(default, null) : Int;
     var text : String;
     var length : Int;
-    var counter : Int = 0;
+    var tempCounter : Array<Int>;
     public function new(text : String){
         this.text = text;
         length = text.length;
+        counter = 0;
+        tempCounter = new Array();
+    }
+    public function tryParse(){
+        tempCounter.push(counter);
+        //trace("counter : " + counter + " tempCounter.length : " + tempCounter.length);
     }
 
-    public function getToken() : Token{
-        while(length > counter){
-            var char = text.charAt(counter);
-            counter++;
-            switch(char){
-                case " ":continue;
-                case "\n":continue;
-                case "\t":continue;
-                case "(":return Token.LParen;
-                case ")":return Token.RParen;
-                case ".":return Token.Period;
-                case "\"":
-                         var str : String = "";
-                         var prevChr : String = "";
-                         while(length > counter){
-                             char = text.charAt(counter);
-                             if(char == "\"" && prevChr != "\\"){
-                                 return Token.String(str);
-                             }
-                             str += char;
-                             counter++;
-                             prevChr = char;
-                         }
-                         return Token.None;
-                default:// ここを書き直す。判定に正規表現使う
-                         var str : String = "";
-                         var reg = new EReg("^[0-9A-Z!\\$%&\\*\\+-\\.\\/<=>\\?@\\^_]+$", "i");
-                         while(length > counter){
-                             if(!reg.match(str + char)){
-                                 if(reg.match(str)){
-                                     return Token.Symbol(str);
-                                 }else{
-                                     return Token.None;
-                                 }
-                             }
-                             str += char;
-                             char = text.charAt(counter);
-                             counter++;
-                         }
-                         return Token.Symbol(str);
-            }
+    public function tryParseEnd(isMatched : Bool){
+        if(isMatched){
+            tempCounter.pop();
+        }else{
+            counter = tempCounter.pop();
         }
-        return null;
+        //trace("counter : " + counter + " tempCounter.length : " + tempCounter.length + " isMatched : " + isMatched);
+    }
+
+    public function getChar() : String{
+        var char = text.charAt(counter);
+        return char;
+    }
+
+    public function remainText() : String{
+        return text.substr(counter);
+    }
+    public function moveNext() : Bool{
+        counter++;
+        return counter < length;
     }
 }
