@@ -21,8 +21,12 @@ class Parser{
         var e = switch(lexer.getChar()){
             case "\"": 
                 parseString(lexer);
-            case "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
-                parseNumber(lexer);
+            case "-", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9":
+                var n = parseNumber(lexer);
+                if(n.match(Left(_))){
+                    n = parseAtom(lexer);
+                }
+                n;
             case "(":
                 lexer.moveNext();
                 lexer.tryParse();
@@ -109,9 +113,16 @@ class Parser{
         lexer.tryParse();
         var number = lexer.getChar();
         var reg = ~/[0-9]/;
-        if(!reg.match(number)){
-            lexer.tryParseEnd(false);
-            trace("Don't match Number at character " + lexer.counter);return Left("Don't match Number");
+        var isNegative = false;
+        
+        if(number == "-"){
+            isNegative = true;
+            number = "";
+        }else{
+            if(!reg.match(number)){
+                lexer.tryParseEnd(false);
+                trace("Don't match Number at character " + lexer.counter);return Left("Don't match Number");
+            }
         }
         while(lexer.moveNext()){
             if(!reg.match(lexer.getChar())){
@@ -120,8 +131,9 @@ class Parser{
             number += lexer.getChar();
         }
         lexer.tryParseEnd(true);
-        return Right(Number(Std.parseInt(number)));
-
+        var i = Std.parseInt(number);
+        if(isNegative)i = -i;
+        return Right(Number(i));
     }
     function parseQuoted(lexer : Lexer) : Either<String, Val>{
         lexer.tryParse();
@@ -148,8 +160,8 @@ class Parser{
             switch(parseExpr(lexer)){
                 case Right(exp):lst.push(exp);
                 case Left(err):
-                    lexer.tryParseEnd(false);
-                    return Left("Don't match List");
+                                lexer.tryParseEnd(false);
+                                return Left("Don't match List");
             }
             if(lexer.getChar() != ")"){
                 if(!skipSpaceAndComment(lexer, false)){
@@ -169,8 +181,8 @@ class Parser{
             switch(parseExpr(lexer)){
                 case Right(exp):lst.push(exp);
                 case Left(err):
-                    lexer.tryParseEnd(false);
-                    return Left("Don't match DottedList");
+                                lexer.tryParseEnd(false);
+                                return Left("Don't match DottedList");
             }
             if(!skipSpaceAndComment(lexer, false)){
                 lexer.tryParseEnd(false);
@@ -185,10 +197,10 @@ class Parser{
         var x = parseExpr(lexer);
         var v : Val;
         switch(x){
-                case Right(exp):v = exp;
-                case Left(err):
-                    lexer.tryParseEnd(false);
-                    return Left("Don't match DottedList");
+            case Right(exp):v = exp;
+            case Left(err):
+                            lexer.tryParseEnd(false);
+                            return Left("Don't match DottedList");
         }
         lexer.tryParseEnd(true);
         return Right(DottedList(lst, v));
