@@ -45,7 +45,21 @@ class Eval{
             "&&" => boolBoolBinop(function(x : Bool, y : Bool){return x && y;}), 
             "||" => boolBoolBinop(function(x : Bool, y : Bool){return x || y;}), 
             "null?" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
                 return Bool(x[0].match(List([])));
+            },
+            "pair?" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return switch(x[0]){
+                    case List([]) : Bool(false);
+                    case List(_) : Bool(true);
+                    case DottedList(_) : Bool(true);
+                    default : Bool(false);
+                }
+            },
+            "list?" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return Bool(x[0].match(List(_)));
             },
             "car" => function(x : Array<Val>){
                 if(x.length != 1)throw "err";
@@ -71,6 +85,25 @@ class Eval{
                     case [v, List(v2)] : return List([v].concat(v2));
                     case [v, DottedList(v2, v3)] : return DottedList([v].concat(v2), v3);
                     default : throw "err";
+                }
+            },
+            "list" => function(x : Array<Val>){ return List(x); },
+            "length" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return switch(x[0]){
+                    case List(lst) : Number(lst.length);
+                    default : throw "err";
+                }
+            },
+            "memq" => function(x : Array<Val>){
+                if(x.length != 2) throw "memq required 2 arguments";
+                switch(x[1]){
+                    case List(lst) :
+                        for(i in 0...lst.length){
+                            if(Type.enumEq(x[0], lst[i]))return List(lst.slice(i));
+                        }
+                        return Bool(false);
+                    default : throw "list required, but got " + Show.toString(x[1]);
                 }
             },
             "load" => function(x : Array<Val>){
@@ -105,6 +138,7 @@ class Eval{
                             };
             case List([Atom("set!"), Atom(key), form]) :
                             return env.setVar(key, eval(env, form));
+            case List([Atom("set!"), List(lst), form]) :
             case List([Atom("define"), Atom(key), form]) : 
                             return env.defineVar(key, eval(env, form));
             case List(lst) if(lst[0].match(Atom("define")) && lst[1].match(List(_))) :

@@ -10,7 +10,7 @@ class Show{
             case DottedList(lst, v) : "(" + showVal(lst) + " . " + v.toString() + ")";
             case Number(i) : "" + i;
             case String(s) : s;
-            case Bool(b) : if(b) "#t" else "f";
+            case Bool(b) : if(b) "#t" else "#f";
             case PrimitiveFunc(f) : "#<primitive>";
             case Func(params, vararg, body, closure) : 
                 var s = "(lambda (" + params.join(" ") +
