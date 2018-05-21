@@ -130,8 +130,13 @@ class Parser{
             }
             number += lexer.getChar();
         }
-        lexer.tryParseEnd(true);
+        // 
         var i = Std.parseInt(number);
+        if(i == null){
+            lexer.tryParseEnd(false);
+            return Left("Don't match Number");
+        }
+        lexer.tryParseEnd(true);
         if(isNegative)i = -i;
         return Right(Number(i));
     }
