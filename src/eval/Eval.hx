@@ -1,5 +1,7 @@
 package src.eval;
 import src.parser.*;
+import src.lexer.Lexer;
+import haxe.ds.Either;
 import src.env.Env;
 import src.show.Show;
 
@@ -43,7 +45,7 @@ class Eval{
             "&&" => boolBoolBinop(function(x : Bool, y : Bool){return x && y;}), 
             "||" => boolBoolBinop(function(x : Bool, y : Bool){return x || y;}), 
             "null?" => function(x : Array<Val>){
-                return Bool(x[0].match(List([])))
+                return Bool(x[0].match(List([])));
             },
             "car" => function(x : Array<Val>){
                 if(x.length != 1)throw "err";
@@ -68,6 +70,21 @@ class Eval{
                     case [v, v2] if(!v2.match(List(_)) && !v2.match(DottedList(_, _))) : return DottedList([v], v2);
                     case [v, List(v2)] : return List([v].concat(v2));
                     case [v, DottedList(v2, v3)] : return DottedList([v].concat(v2), v3);
+                    default : throw "err";
+                }
+            },
+            "load" => function(x : Array<Val>){
+                if(x.length != 1)throw "err";
+                switch(x[0]){
+                    case String(filename) :
+                        var txt = sys.io.File.getContent(filename);
+                        var parsed = new Parser().parse(new Lexer(txt));
+                        switch(parsed){
+                            case Right(tree) :
+                                return tree;
+                            case Left(_) :
+                                throw "err";
+                        }
                     default : throw "err";
                 }
             }
@@ -115,10 +132,12 @@ class Eval{
             case List(lst) if(lst[0].match(Atom("lambda")) && lst[1].match(Atom(_))) :
                             return makeVarargs(lst[1], env, [], lst.slice(2));
 
+            case List(lst) if(lst[0].match(Atom("load")) && lst[1].match(String(_))) :
+                            eval(env, apply(eval(env, lst[0]), lst.slice(1)));
+                            return Atom("loaded");
+
             case List(lst) : return apply(eval(env, lst[0]), lst.slice(1).map(function (x) {return eval(env,x);}));
-            default : return Atom("err");
-                      //case DottedList(lst, v):
-                      //case Atom(s):return val;
+            default : throw "err";
         }
     }
 
