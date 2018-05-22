@@ -18,25 +18,48 @@ class Eval{
             "/" => numericBinop(function(x : Int, y : Int){return cast (x / y, Int);}),
             "mod" => numericBinop(function(x : Int, y : Int){return x % y;}),
             "number?" => function(x : Array<Val>){
-                if(x.length != 1)throw "err";
+                if(x.length != 1) throw "too many arguments";
                 return switch(x[0]){
                 case Number(_) : Bool(true);
                 default : Bool(false);}},
             "boolean?" => function(x : Array<Val>){
-                if(x.length != 1)throw "err";
-                return switch(x[0]){
-                case Bool(_) : Bool(true);
-                default : Bool(false);}},
-            "string?" => function(x : Array<Val>){
-                if(x.length != 1)throw "err";
+                if(x.length != 1) throw "too many arguments";
                 return switch(x[0]){
                 case Bool(_) : Bool(true);
                 default : Bool(false);}},
             "not" => function(x : Array<Val>){
-                if(x.length != 1)throw "err";
+                if(x.length != 1) throw "too many arguments";
                 return switch(x[0]){
                 case Bool(t) if(t == false): Bool(true);
                 default : Bool(false);}},
+            "string?" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return switch(x[0]){
+                case Bool(_) : Bool(true);
+                default : Bool(false);}
+            },
+            "string->number" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return switch(x[0]){
+                    case String(str) : Number(Std.parseInt(str));
+                    default : throw "string required, but got " + Show.toString(x[0]);
+                }
+            },
+            "number->string" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return switch(x[0]){
+                    case Number(number) : String("" + number);
+                    default : throw "number required, but got " + Show.toString(x[0]);
+                }
+            },
+            "procedure?" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return switch(x[0]){
+                    case Func(_) : Bool(true);
+                    case PrimitiveFunc(_) : Bool(true);
+                    default : Bool(false);
+                }
+            },
             "=" => numBoolBinop(function(x : Int, y : Int){return x == y;}), 
             "<" => numBoolBinop(function(x : Int, y : Int){return x < y;}), 
             "<=" => numBoolBinop(function(x : Int, y : Int){return x <= y;}), 
@@ -138,7 +161,7 @@ class Eval{
                             };
             case List([Atom("set!"), Atom(key), form]) :
                             return env.setVar(key, eval(env, form));
-            case List([Atom("set!"), List(lst), form]) :
+            // case List([Atom("set-car!"), List(lst), form]) :
             case List([Atom("define"), Atom(key), form]) : 
                             return env.defineVar(key, eval(env, form));
             case List(lst) if(lst[0].match(Atom("define")) && lst[1].match(List(_))) :
