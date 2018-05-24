@@ -38,6 +38,20 @@ class Eval{
                 case Bool(_) : Bool(true);
                 default : Bool(false);}
             },
+            "symbol->string" => function(x : Array<Val>){
+                if(x.length != 1)throw "too many arguments";
+                return switch(x[0]){
+                    case Atom(s) : String(s);
+                    default : throw "symbol required, but got "  +Show.toString(x[0]);
+                }
+            },
+            "string->symbol" => function(x : Array<Val>){
+                if(x.length != 1)throw "too many arguments";
+                return switch(x[0]){
+                    case String(s) : Atom(s);
+                    default : throw "string required, but got "  +Show.toString(x[0]);
+                }
+            },
             "string->number" => function(x : Array<Val>){
                 if(x.length != 1) throw "too many arguments";
                 return switch(x[0]){
@@ -189,7 +203,40 @@ class Eval{
             case List(lst) if(lst[0].match(Atom("lambda")) && lst[1].match(Atom(_))) :
                             return makeVarargs(lst[1], env, [], lst.slice(2));
 
-            case List(lst) if(lst[0].match(Atom("load")) && lst[1].match(String(_))) :
+            case List(lst) if(lst[0].match(Atom("cond")) && lst.length > 1) :
+                            for(x in lst.slice(1)){
+                                switch(x){
+                                    case List(l) if(l[0].match(Atom("else")) && l.length > 1) :
+                                        return l.slice(1).map(function(x){return eval(env, x);})[l.length - 2];
+                                    case List(l) if(l.length > 1) :
+                                        if(eval(env, l[0]).match(Bool(true))){
+                                            return l.slice(1).map(function(x){return eval(env, x);})[l.length - 2];
+                                        }
+                                    default : throw "cond parameter must be list";
+                                }
+                            }
+                            throw "cond has no list";
+            case List(lst) if(lst[0].match(Atom("or"))) :
+                            for(x in lst.slice(1)){
+                                var res = eval(env, x);
+                                if(!res.match(Bool(false)))return res;
+                            }
+                            return Bool(false);
+            case List(lst) if(lst[0].match(Atom("and"))) :
+                            var res : Val = Bool(true);
+                            for(x in lst.slice(1)){
+                                res = eval(env, x);
+                                if(res.match(Bool(false)))return Bool(false);
+                            }
+                            return res;
+            case List(lst) if(lst[0].match(Atom("begin"))) : 
+                            var res : Val = val;
+                            for(x in lst.slice(1)){
+                                res = eval(env, x);
+                            }
+                            return res;
+
+        case List(lst) if(lst[0].match(Atom("load")) && lst[1].match(String(_))) :
                             eval(env, apply(eval(env, lst[0]), lst.slice(1)));
                             return Atom("loaded");
 
