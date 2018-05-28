@@ -19,6 +19,13 @@ class Show{
                      case Some(arg) : " . " + arg;
                  };
                 s + ") ...)";
+            case Macro(params, vararg, body, closure) :
+                var s = "(macro (" + params.join(" ") +
+                switch(vararg){
+                     case None : "";
+                     case Some(arg) : " . " + arg;
+                 };
+                s + ") ...)";
         }
     }
 

@@ -143,6 +143,9 @@ class Eval{
                     default : throw "list required, but got " + Show.toString(x[1]);
                 }
             },
+            "apply" => function(x : Array<Val>){
+                return apply(x[0], x.slice(1));
+            },
             "load" => function(x : Array<Val>){
                 if(x.length != 1)throw "err";
                 switch(x[0]){
@@ -190,6 +193,19 @@ class Eval{
                                 default : throw "err";
                             };
 
+            case List(lst) if(lst[0].match(Atom("define-macro")) && lst[1].match(List(_))) :
+                            return switch(lst[1]){
+                                case List(args) : env.defineVar(Show.toString(args[0]), makeNormalMacro(env, args.slice(1), lst.slice(2)));
+                                default : throw "err";
+                            };
+            case List(lst) if(lst[0].match(Atom("define-macro")) && lst[1].match(DottedList(_))) :
+                            return switch(lst[1]){
+                                case DottedList(args, varargs) : 
+                                    env.defineVar(Show.toString(args[0]), makeVarargsMacro(varargs, env, args.slice(1), lst.slice(2)));
+                                default : throw "err";
+                            }
+
+
             case List(lst) if(lst[0].match(Atom("lambda")) &&  lst[1].match(List(_))) :
                             return switch(lst[1]){
                                 case List(args) : makeNormalFunc(env, args, lst.slice(2));
@@ -236,11 +252,20 @@ class Eval{
                             }
                             return res;
 
-        case List(lst) if(lst[0].match(Atom("load")) && lst[1].match(String(_))) :
+            case List(lst) if(lst[0].match(Atom("load")) && lst[1].match(String(_))) :
                             eval(env, apply(eval(env, lst[0]), lst.slice(1)));
                             return Atom("loaded");
 
-            case List(lst) : return apply(eval(env, lst[0]), lst.slice(1).map(function (x) {return eval(env,x);}));
+
+            case List(lst) : 
+                            var func = eval(env, lst[0]);
+                            return switch(func){
+                                case Macro(_):
+                                    eval(env, apply(func, lst.slice(1)));
+                                default :
+                                    apply(func, lst.slice(1).map(function (x) {return eval(env,x);}));
+                            }
+
             default : throw "err";
         }
     }
@@ -263,6 +288,17 @@ class Eval{
         return makeFunc(Some(Show.toString(varargs)), env, params, body);
     }
 
+    function makeMacro(varargs, env, params, body) : Val{
+        return Macro(params.map(Show.toString), varargs, body, env);
+    }
+
+    function makeNormalMacro(env, params, body){
+        return makeMacro(None, env, params, body);
+    }
+    function makeVarargsMacro(varargs, env, params, body){
+        return makeMacro(Some(Show.toString(varargs)), env, params, body);
+    }
+
     public function apply(func : Val, args : Array<Val>){
         switch(func){
             case Atom(f) :
@@ -270,6 +306,16 @@ class Eval{
             case PrimitiveFunc(f) : 
                 return f(args);
             case Func(params, varargs, body, closure) : 
+                if(params.length != args.length && varargs.match(None))throw "err";
+                for(i in 0...params.length){
+                    closure.defineVar(params[i], args[i]);
+                }
+                switch(varargs){
+                    case Some(arg) : closure.defineVar(arg, List(args.slice(params.length)));
+                    case None :
+                }
+                return body.map(function (x){return eval(closure,x);})[body.length - 1];
+            case Macro(params, varargs, body, closure) :
                 if(params.length != args.length && varargs.match(None))throw "err";
                 for(i in 0...params.length){
                     closure.defineVar(params[i], args[i]);

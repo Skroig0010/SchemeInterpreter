@@ -10,4 +10,5 @@ enum Val{
     Bool(b : Bool);
     PrimitiveFunc(f : Array<Val> -> Val);
     Func(params : Array<String>,vararg : Option<String>, body : Array<Val>, closure : Env);
+    Macro(params : Array<String>, vararg : Option<String>, body : Array<Val>, closure : Env);
 }
