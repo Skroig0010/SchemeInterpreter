@@ -155,8 +155,8 @@ class Eval{
                         switch(parsed){
                             case Right(tree) :
                                 return tree;
-                            case Left(_) :
-                                throw "err";
+                            case Left(err) :
+                                throw err;
                         }
                     default : throw "err";
                 }
@@ -218,6 +218,22 @@ class Eval{
                             };
             case List(lst) if(lst[0].match(Atom("lambda")) && lst[1].match(Atom(_))) :
                             return makeVarargs(lst[1], env, [], lst.slice(2));
+            case List(lst) if(lst[0].match(Atom("let")) && !lst[1].match(Atom(_))): 
+                            // 名前付きletはマクロで実装できるのでガードで潰しておく(ここでできそうなら編集する)
+                            var newEnv = new Env();
+                            switch(lst[1]){
+                                case List(lst1) :
+                                    for(l in lst1){
+                                        switch(l){
+                                            case List(ll) : 
+                                                newEnv.defineVar(Show.toString(ll[0]), eval(env, ll[1]));
+                                            default : throw "something wrong in let";
+                                        }
+                                    }
+                                    newEnv.bindVars(env);
+                                    return eval(newEnv, List([Val.Atom("begin")].concat(lst.slice(2))));
+                                default : throw "something wrong in let";
+                            }
 
             case List(lst) if(lst[0].match(Atom("cond")) && lst.length > 1) :
                             for(x in lst.slice(1)){
@@ -255,7 +271,6 @@ class Eval{
             case List(lst) if(lst[0].match(Atom("load")) && lst[1].match(String(_))) :
                             eval(env, apply(eval(env, lst[0]), lst.slice(1)));
                             return Atom("loaded");
-
 
             case List(lst) : 
                             var func = eval(env, lst[0]);
