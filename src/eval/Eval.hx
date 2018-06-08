@@ -246,8 +246,72 @@ class Eval{
                         }
                     default : throw "list required, but got " + Show.toString(x[1]);
                 }
+            },
+            "reflection-object" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return switch(x[0]){
+                    case String(str) : HaxeObject(Type.resolveClass(str));
+                    default : throw "string required, but got " + Show.toString(x[1]);
+                }
+            },
+            "reflection-method" => function(x : Array<Val>){
+                if(x.length < 2) throw "reflection-method required 2 or more arguments";
+                return switch(x[0]){
+                    case HaxeObject(obj) :
+                        switch(x[1]){
+                            case String(method) :
+                                if(x.length == 2){
+                                    HaxeObject(Reflect.callMethod(obj, Reflect.field(Type.resolveClass("Math"), method), []));
+                                }else{
+                                    switch(x[2]){
+                                        case List(_):
+                                            trace(valToHaxeObject(x[2]));
+                                            HaxeObject(Reflect.callMethod(obj, Reflect.field(Type.resolveClass("Math"), method), cast(valToHaxeObject(x[2]), Array<Dynamic>)));
+                                        default : throw "list required, but got " + Show.toString(x[1]);
+                                    }
+                                }
+                            default : throw "string required, but got " + Show.toString(x[1]);
+                        }
+                    default : throw "HaxeObject required, but got " + Show.toString(x[1]);
+                }
+            },
+            "reflection-field" => function(x : Array<Val>){
+                if(x.length != 2) throw "reflection-field required 2 arguments";
+                return switch(x[0]){
+                    case HaxeObject(obj) :
+                        switch(x[1]){
+                            case String(field) :
+                                HaxeObject(Reflect.field(obj, field));
+                            default : throw "string required, but got " + Show.toString(x[1]);
+                        }
+                    default : throw "HaxeObject required, but got " + Show.toString(x[1]);
+                }
+            },
+            "haxeobject->val" => function(x : Array<Val>){
+                if(x.length != 1) throw "too many arguments";
+                return switch(x[0]){
+                    case HaxeObject(obj) :
+                        switch(Type.typeof(obj)){
+                            case TInt : 
+                                Number(cast(obj, Int));
+                            case TBool : 
+                                Bool(cast(obj, Bool));
+                            case TNull : 
+                                List([]);
+                            case TObject :
+                                switch(Type.getClassName(Type.getClass(obj))){
+                                    case "String" :
+                                        String(cast(obj, String));
+                                    default :
+                                        HaxeObject(obj);
+                                }
+                            default :
+                                HaxeObject(obj);
+                        }
+                    default : throw "HaxeObject required, but got " + Show.toString(x[1]);
+                }
             }
-    ];
+            ];
     }
 
     public function eval(env : Env, val : Val){
@@ -257,6 +321,8 @@ class Eval{
             case String(s) : 
                 return val;
             case Bool(b) : 
+                return val;
+            case HaxeObject(obj) :
                 return val;
             case Atom(id) : 
                 return env.getVar(id);
@@ -323,7 +389,7 @@ class Eval{
                                 }
                             default : throw"Attempt to apply set-cdr! on " + Show.toString(form);
                         }
-                        );
+                );
             case List([Atom("define"), Atom(key), form]) : 
                 return env.defineVar(key, eval(env, form));
             case List(lst) if(lst[0].match(Atom("define")) && lst[1].match(List(_))) :
@@ -533,7 +599,7 @@ class Eval{
         return makeMacro(Some(Show.toString(varargs)), env, params, body);
     }
 
-    public function apply(func : Val, args : Array<Val>){
+    function apply(func : Val, args : Array<Val>){
         switch(func){
             case Atom(f) :
                 return primitives.get(f)(args);
@@ -564,7 +630,7 @@ class Eval{
         }
     }
 
-    public function numericBinop(func : Int -> Int -> Int) : Array<Val> -> Val{
+    function numericBinop(func : Int -> Int -> Int) : Array<Val> -> Val{
         return function(args : Array<Val>){
             return args.slice(1).fold(function(x : Val, y : Val) : Val{
                 return switch[x, y]{
@@ -576,7 +642,7 @@ class Eval{
         }
     }
 
-    public function numBoolBinop(func : Int -> Int -> Bool) : Array<Val> -> Val{
+    function numBoolBinop(func : Int -> Int -> Bool) : Array<Val> -> Val{
         return function(args : Array<Val>){
             return args.slice(1).fold(function(x : Val, y : Val) : Val{
                 return switch[x, y]{
@@ -588,7 +654,7 @@ class Eval{
         }
     }
 
-    public function boolBoolBinop(func : Bool -> Bool -> Bool) : Array<Val> -> Val{
+    function boolBoolBinop(func : Bool -> Bool -> Bool) : Array<Val> -> Val{
         return function(args : Array<Val>){
             return args.slice(1).fold(function(x : Val, y : Val) : Val{
                 return switch[x, y]{
@@ -600,7 +666,7 @@ class Eval{
         }
     }
 
-    public function strBoolBinop(func : String -> String -> Bool) : Array<Val> -> Val{
+    function strBoolBinop(func : String -> String -> Bool) : Array<Val> -> Val{
         return function(args : Array<Val>){
             return args.slice(1).fold(function(x : Val, y : Val) : Val{
                 return switch[x, y]{
@@ -609,6 +675,29 @@ class Eval{
                     default : throw "string required, but got another value.";
                 }
             }, args[0]);
+        }
+    }
+
+    function valToHaxeObject(x : Val) : Dynamic{
+        return switch(x){
+            case List(lst) : 
+                var lst2 = new Array<Dynamic>();
+                for(obj in lst){
+                    lst2.push(valToHaxeObject(obj));
+                }
+                lst2;
+            case DottedList(lst, v) :
+                var lst2 = new Array<Dynamic>();
+                for(obj in lst){
+                    lst2.push(valToHaxeObject(obj));
+                }
+                lst2;
+            case Number(i) : i;
+            case String(s) : s;
+            case Bool(b) : b;
+            case PrimitiveFunc(f) : f;
+            case HaxeObject(x) : x;
+            default : throw "どうしたらいいんですか";
         }
     }
 

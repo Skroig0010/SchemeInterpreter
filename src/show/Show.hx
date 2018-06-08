@@ -26,6 +26,8 @@ class Show{
                      case Some(arg) : " . " + arg;
                  };
                 s + ") ...)";
+            case HaxeObject(obj) :
+                "haxe object : " + obj;
         }
     }
 
