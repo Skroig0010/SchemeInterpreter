@@ -430,7 +430,6 @@ class Eval{
             case List(lst) if(lst[0].match(Atom("lambda")) && lst[1].match(Atom(_))) :
                 return makeVarargs(lst[1], env, [], lst.slice(2));
             case List(lst) if(lst[0].match(Atom("let")) && !lst[1].match(Atom(_))): 
-                // 名前付きletはマクロで実装できるのでガードで潰しておく(ここでできそうなら編集する)
                 var newEnv = new Env();
                 switch(lst[1]){
                     case List(lst1) :
@@ -445,6 +444,42 @@ class Eval{
                         return eval(newEnv, List([Val.Atom("begin")].concat(lst.slice(2))));
                     default : throw "something wrong in let";
                 }
+            case List(lst) if(lst[0].match(Atom("let"))) :
+                var newEnv = new Env();
+                newEnv.bindVars(env);
+                var name = switch(lst[1]){
+                    case Atom(name) : name;
+                    default : throw "ここには来ないはず";
+                }
+                var params = switch(lst[2]){
+                    case List(lst2) : 
+                        var params = new Array<Val>();
+                        for(param in lst2){
+                            switch(param){
+                                case List(lst3) : 
+                                    params.push(lst3[0]);
+                                default : throw "something wrong in let";
+                            }
+                        }
+                        params;
+                    default : throw "something wrong in let";
+                }
+                var args = switch(lst[2]){
+                    case List(lst2) : 
+                        var args = new Array<Val>();
+                        for(arg in lst2){
+                            switch(arg){
+                                case List(lst3) : 
+                                    args.push(lst3[1]);
+                                default : throw "something wrong in let";
+                            }
+                        }
+                        args;
+                    default : throw "something wrong in let";
+                }
+                var func = makeNormalFunc(newEnv, params, lst.slice(3));
+                newEnv.defineVar(name, func);
+                return apply(func, args.map(function (x) {return eval(newEnv,x);}));
             case List(lst) if(lst[0].match(Atom("let*"))) :
                 var newEnv = new Env();
                 newEnv.bindVars(env);
