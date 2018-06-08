@@ -261,12 +261,11 @@ class Eval{
                         switch(x[1]){
                             case String(method) :
                                 if(x.length == 2){
-                                    HaxeObject(Reflect.callMethod(obj, Reflect.field(Type.resolveClass("Math"), method), []));
+                                    HaxeObject(Reflect.callMethod(obj, Reflect.field(obj, method), []));
                                 }else{
                                     switch(x[2]){
                                         case List(_):
-                                            trace(valToHaxeObject(x[2]));
-                                            HaxeObject(Reflect.callMethod(obj, Reflect.field(Type.resolveClass("Math"), method), cast(valToHaxeObject(x[2]), Array<Dynamic>)));
+                                            HaxeObject(Reflect.callMethod(obj, Reflect.field(obj, method), cast(valToHaxeObject(x[2]), Array<Dynamic>)));
                                         default : throw "list required, but got " + Show.toString(x[1]);
                                     }
                                 }
@@ -298,6 +297,8 @@ class Eval{
                                 Bool(cast(obj, Bool));
                             case TNull : 
                                 List([]);
+                            case TEnum(e) if(Type.getEnumName(e) == "src.parser.Val") :
+                                cast(obj, Val);
                             case TObject :
                                 switch(Type.getClassName(Type.getClass(obj))){
                                     case "String" :
@@ -310,7 +311,12 @@ class Eval{
                         }
                     default : throw "HaxeObject required, but got " + Show.toString(x[1]);
                 }
+            },
+            "display" => function(x : Array<Val>){
+                trace(x);
+                return Atom("#undef");
             }
+
             ];
     }
 
@@ -325,6 +331,7 @@ class Eval{
             case HaxeObject(obj) :
                 return val;
             case Atom(id) : 
+                if(!env.isBound(id))throw "unbound symbol : " + id;
                 return env.getVar(id);
             case List([Atom("quote"), v]) : 
                 return v;
@@ -394,38 +401,38 @@ class Eval{
                 return env.defineVar(key, eval(env, form));
             case List(lst) if(lst[0].match(Atom("define")) && lst[1].match(List(_))) :
                 return switch(lst[1]){
-                    // たぶん(define ((a b c) x y) (...))みたいなのがエラーにならない
+                    // (define ('(a b c) x y) (...))みたいなのがエラーにならない
                     case List(args) : env.defineVar(Show.toString(args[0]), makeNormalFunc(env, args.slice(1), lst.slice(2)));
-                    default : throw "err";
+                    default : throw "error";
                 };
             case List(lst) if(lst[0].match(Atom("define")) && lst[1].match(DottedList(_))) :
                 return switch(lst[1]){
                     case DottedList(args, varargs) : env.defineVar(Show.toString(args[0]), makeVarargs(varargs, env, args.slice(1), lst.slice(2)));
-                    default : throw "err";
+                    default : throw "error";
                 };
 
             case List(lst) if(lst[0].match(Atom("define-macro")) && lst[1].match(List(_))) :
                 return switch(lst[1]){
                     case List(args) : env.defineVar(Show.toString(args[0]), makeNormalMacro(env, args.slice(1), lst.slice(2)));
-                    default : throw "err";
+                    default : throw "error";
                 };
             case List(lst) if(lst[0].match(Atom("define-macro")) && lst[1].match(DottedList(_))) :
                 return switch(lst[1]){
                     case DottedList(args, varargs) : 
                         env.defineVar(Show.toString(args[0]), makeVarargsMacro(varargs, env, args.slice(1), lst.slice(2)));
-                    default : throw "err";
+                    default : throw "error";
                 }
 
 
             case List(lst) if(lst[0].match(Atom("lambda")) &&  lst[1].match(List(_))) :
                 return switch(lst[1]){
                     case List(args) : makeNormalFunc(env, args, lst.slice(2));
-                    default : throw "err";
+                    default : throw "error";
                 };
             case List(lst) if(lst[0].match(Atom("lambda")) && lst[1].match(DottedList(_))) :
                 return switch(lst[1]){
                     case DottedList(args, varargs) : makeVarargs(varargs, env, args, lst.slice(2));
-                    default : throw "err";
+                    default : throw "error";
                 };
             case List(lst) if(lst[0].match(Atom("lambda")) && lst[1].match(Atom(_))) :
                 return makeVarargs(lst[1], env, [], lst.slice(2));
@@ -601,7 +608,7 @@ class Eval{
                         apply(func, lst.slice(1).map(function (x) {return eval(env,x);}));
                 }
 
-            default : throw "err";
+            default : throw "error";
         }
     }
 
@@ -637,11 +644,12 @@ class Eval{
     function apply(func : Val, args : Array<Val>){
         switch(func){
             case Atom(f) :
+                if(!primitives.exists(f))throw "there isn't such function : " + f;
                 return primitives.get(f)(args);
             case PrimitiveFunc(f) : 
                 return f(args);
             case Func(params, varargs, body, closure) : 
-                if(params.length != args.length && varargs.match(None))throw "err";
+                if(params.length != args.length && varargs.match(None))throw "number of arguments does not match";
                 for(i in 0...params.length){
                     closure.defineVar(params[i], args[i]);
                 }
@@ -651,7 +659,7 @@ class Eval{
                 }
                 return body.map(function (x){return eval(closure,x);})[body.length - 1];
             case Macro(params, varargs, body, closure) :
-                if(params.length != args.length && varargs.match(None))throw "err";
+                if(params.length != args.length && varargs.match(None))throw "number of arguments does not match";
                 for(i in 0...params.length){
                     closure.defineVar(params[i], args[i]);
                 }
@@ -661,7 +669,7 @@ class Eval{
                 }
                 return body.map(function (x){return eval(closure,x);})[body.length - 1];
             default :
-                return Atom("err");
+                throw "error";
         }
     }
 
@@ -671,7 +679,7 @@ class Eval{
                 return switch[x, y]{
                     case[Number(num1), Number(num2)] :
                         Number(flip(func)(num1, num2));
-                    default : throw "number required, but got another value.";
+                    default : throw "number required, but got " + Show.toString(x) + " and " + Show.toString(y);
                 }
             }, args[0]);
         }
@@ -683,7 +691,7 @@ class Eval{
                 return switch[x, y]{
                     case [Number(num1), Number(num2)] :
                         Bool(flip(func)(num1, num2));
-                    default : throw "number required, but got another value.";
+                    default : throw "number required, but got " + Show.toString(x) + " and " + Show.toString(y);
                 }
             }, args[0]);
         }
@@ -695,7 +703,7 @@ class Eval{
                 return switch[x, y]{
                     case [Bool(b1), Bool(b2)] :
                         Bool(flip(func)(b1, b2));
-                    default : throw "bool required, but got another value.";
+                    default : throw "number required, but got " + Show.toString(x) + " and " + Show.toString(y);
                 }
             }, args[0]);
         }
@@ -707,13 +715,13 @@ class Eval{
                 return switch[x, y]{
                     case [String(b1), String(b2)] :
                         Bool(flip(func)(b1, b2));
-                    default : throw "string required, but got another value.";
+                    default : throw "string required, but got other value.";
                 }
             }, args[0]);
         }
     }
 
-    function valToHaxeObject(x : Val) : Dynamic{
+    public function valToHaxeObject(x : Val) : Dynamic{
         return switch(x){
             case List(lst) : 
                 var lst2 = new Array<Dynamic>();
@@ -732,7 +740,8 @@ class Eval{
             case Bool(b) : b;
             case PrimitiveFunc(f) : f;
             case HaxeObject(x) : x;
-            default : throw "どうしたらいいんですか";
+            case Atom(s) : throw "Atom(" + s + ")は評価しておいてほしい";
+            default : throw "MacroとFuncは勘弁して";
         }
     }
 

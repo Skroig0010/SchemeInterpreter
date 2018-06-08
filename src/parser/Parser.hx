@@ -70,7 +70,7 @@ class Parser{
     function parseAtom(lexer : Lexer) : Either<String, Val>{
         lexer.tryParse();
         var symbol = lexer.getChar();
-        var reg = ~/^[0-9A-Z!\$%&\*\+-\.<=>\?@\^_#]+$/i;
+        var reg = ~/^[0-9A-Z!\$%&\*\+-\.<=>\?@\^_#\/]+$/i;
         if(!reg.match(symbol)){
             lexer.tryParseEnd(false);
             trace("Don't match Symbol at character " + lexer.counter);return Left("Don't match Symbol");
