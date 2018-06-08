@@ -5,3 +5,5 @@ src.parser.Parser
 src.parser.Val
 src.lexer.Lexer
 src.eval.Eval
+src.env.Env
+src.show.Show

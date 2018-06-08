@@ -5,14 +5,28 @@ import haxe.ds.Either;
 class Parser{
     public function new(){ }
 
-    public function parse(lexer : Lexer) : Either<String, Val>{ 
-        skipSpaceAndComment(lexer, true);
-        var exp = parseExpr(lexer);
-        skipSpaceAndComment(lexer, true);
-        if(exp.match(Right(_)) && lexer.remainText() != ""){
-            return Left("unexpected text : " + lexer.remainText());
+    public function parse(lexer : Lexer) : Either<String, Array<Val>>{ 
+        var vals : Either<String, Array<Val>> = Right(new Array<Val>());
+        while(true){
+            skipSpaceAndComment(lexer, true);
+            var exp = parseExpr(lexer);
+            skipSpaceAndComment(lexer, true); 
+                switch(exp){
+                    case Right(exp) : 
+                        switch(vals){
+                            case Right(arr) :
+                                arr.push(exp);
+                            case Left(_) :
+                                // 何もしない
+                        }
+                    case Left(err) :
+                        return Left(err);
+                }
+            if(lexer.remainText() == ""){
+                break;
+            }
         }
-        return exp;
+        return vals;
     }
     // 最初の1文字は見る
     // つまり1単語読み終えたら次の単語の文字を指すようにする
@@ -32,9 +46,9 @@ class Parser{
                 lexer.tryParse();
                 var l = parseList(lexer);
                 if(l.match(Left(_))){
-                        lexer.tryParseEnd(false);
-                        lexer.tryParse();
-                        l = parseDottedList(lexer);
+                    lexer.tryParseEnd(false);
+                    lexer.tryParse();
+                    l = parseDottedList(lexer);
                 }
                 lexer.tryParseEnd(l.match(Right(_)));
                 if(lexer.getChar() == ")"){
@@ -80,7 +94,7 @@ class Parser{
             }
         }else{
             lexer.tryParseEnd(false);
-            trace("Don't match Symbol at character " + lexer.counter);return Left("Don't match Symbol");
+            return Left("Don't match Symbol at character " + lexer.counter);
         }
     }
     function parseString(lexer : Lexer) : Either<String, Val>{
@@ -114,7 +128,7 @@ class Parser{
         var number = lexer.getChar();
         var reg = ~/[0-9]/;
         var isNegative = false;
-        
+
         if(number == "-"){
             isNegative = true;
             number = "";

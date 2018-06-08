@@ -239,8 +239,8 @@ class Eval{
                         var txt = sys.io.File.getContent(filename);
                         var parsed = new Parser().parse(new Lexer(txt));
                         switch(parsed){
-                            case Right(tree) :
-                                return tree;
+                            case Right(exps) :
+                                return List([Val.Atom("begin")].concat(exps));
                             case Left(err) :
                                 throw err;
                         }

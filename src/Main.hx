@@ -23,15 +23,13 @@ class Main{
             var parsed = parser.parse(lexer);
             //trace(parsed);
             switch(parsed){
-                case Right(tree) :
-                    var result = eval.eval(env, tree).toString();
+                case Right(exps) :
+                    var result = eval.eval(env, exps[0]).toString();
                     // env.showEnv(false);
                     trace(result);
                 case Left(_):
                     trace("parse error");
             }
         }
-        // How to use Reflection
-        // trace(Reflect.callMethod(Type.resolveClass("Math"), Reflect.field(Type.resolveClass("Math"), "cos"), [3.14159265358979323846265]));
     }
 }
